@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Phone Architecture Lookup</title>
+    <link rel="stylesheet" href="fontawesome/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        h1 {
+            color: #4CAF50;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: #45a049;
+            outline: none;
+        }
+
+        #architectureInfo {
+            text-align: center;
+            font-size: 18px;
+            margin: 20px auto;
+            color: #555;
+        }
+
+        @media (max-width: 600px) {
+            input[type="text"], select {
+                width: 100%;
+            }
+        }
+
+        .tt-menu {
+            width: 100%;
+            margin: 0 auto;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+            max-width: 800px;
+        }
+
+        .tt-suggestion {
+            padding: 10px;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .tt-suggestion:hover {
+            background-color: #45a049;
+            color: #fff;
+        }
+
+        .tt-cursor {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .tt-hint {
+            display: none; /* Hide the hint text */
+        }
+
+        .tt-input {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            font-size: 16px;
+            display: block;
+        }
+
+        .twitter-typeahead {
+            width: 100%;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/corejs-typeahead/1.3.1/typeahead.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-mobile-alt"></i> Android Phone Architecture Lookup</h1>
+        <label for="brandSelect"><i class="fas fa-mobile"></i> Select Brand:</label>
+        <select id="brandSelect" onchange="loadBrandData()">
+            <option value="">-- Select a brand --</option>
+            <option value="samsung">Samsung</option>
+            <option value="xiaomi">Xiaomi</option>
+        </select>
+        <label for="phoneName"><i class="fas fa-search"></i> Enter Android phone name:</label>
+        <input type="text" id="phoneName" disabled>
+        <p id="architectureInfo"></p>
+    </div>
+
+    <script>
+        let phoneData = [];
+        let fuse;
+        let typeaheadInstance;
+
+        window.onload = function() {
+            resetPage();
+        };
+
+        function resetPage() {
+            // Reset the dropdown menu to the default value
+            document.getElementById("brandSelect").value = "";
+            
+            // Clear the input field and reset its state
+            const phoneNameInput = document.getElementById("phoneName");
+            phoneNameInput.value = "";
+            phoneNameInput.disabled = true;
+            
+            // Clear the architecture information
+            document.getElementById("architectureInfo").textContent = "";
+
+            // Destroy the typeahead instance if it exists
+            if (typeaheadInstance) {
+                typeaheadInstance.typeahead('destroy');
+            }
+        }
+
+        function loadBrandData() {
+            const brandSelect = document.getElementById("brandSelect").value;
+            const phoneNameInput = document.getElementById("phoneName");
+            phoneNameInput.disabled = true;
+            phoneNameInput.value = "";
+            document.getElementById("architectureInfo").textContent = "";
+            phoneData = [];
+
+            // Destroy previous typeahead instance and remove event listeners
+            if (typeaheadInstance) {
+                typeaheadInstance.typeahead('destroy');
+            }
+
+            if (brandSelect) {
+                const script = document.createElement("script");
+                script.src = brandSelect + "Data.js";
+                script.onload = () => {
+                    if (brandSelect === "samsung") {
+                        phoneData = samsungData;
+                    } else if (brandSelect === "xiaomi") {
+                        phoneData = xiaomiData;
+                    }
+                    phoneNameInput.disabled = false;
+                    setupTypeahead();
+                };
+                document.body.appendChild(script);
+            }
+        }
+
+        function setupTypeahead() {
+            fuse = new Fuse(phoneData, {
+                keys: ['name'],
+                threshold: 0.3
+            });
+
+            typeaheadInstance = $('#phoneName').typeahead({
+                hint: false, // Disable the hint
+                highlight: true,
+                minLength: 1
+            },
+            {
+                name: 'phones',
+                source: function (query, syncResults) {
+                    const results = fuse.search(query);
+                    syncResults(results.map(result => result.item.name));
+                }
+            });
+
+            // Ensure single-click selection and immediate closing of suggestion list
+            typeaheadInstance.on('typeahead:select', function(ev, suggestion) {
+                displayArchitecture(suggestion);
+                typeaheadInstance.typeahead('close');
+            });
+        }
+
+        function displayArchitecture(phoneName) {
+            const architectureInfo = document.getElementById("architectureInfo");
+            const phone = phoneData.find(phone => phone.name.toLowerCase() === phoneName.toLowerCase());
+
+            if (phone) {
+                architectureInfo.textContent = `The ${phone.name} uses ${phone.architecture} architecture.`;
+            } else {
+                architectureInfo.textContent = "No information found for this Android phone.";
+            }
+        }
+    </script>
+</body>
+</html>
